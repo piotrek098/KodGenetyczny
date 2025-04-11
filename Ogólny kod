@@ -1,0 +1,178 @@
+using System;
+using System.Linq;
+
+class KodowanieGenetyczne
+{
+    static void Main()
+    {
+        double ZDMin = -1, ZDMax = 2;
+        int LBnP = 3;
+        double ZD = ZDMax - ZDMin;
+        int iloscChromosomow = (int)Math.Pow(2, LBnP);
+        double krok = ZD / (iloscChromosomow - 1);
+
+
+        double[] Ocenaosobników = { 0.5, 3.2, 2.8, 4.1, 1, 1, 1, 5 };
+        int TurRozm = 2;
+
+
+        int LBnOs = 6; 
+
+
+
+        int[][] tablicaZakodowanych = new int[iloscChromosomow][];
+        double[] tablicaDekodowanych = new double[iloscChromosomow];
+
+        Console.WriteLine("Kodowanie | Binarnie | Dekodowanie");
+        Console.WriteLine("----------------------------------");
+
+        for (int i = 0; i < iloscChromosomow; i++)
+        {
+            double pm = ZDMin + i * krok;
+            tablicaZakodowanych[i] = Koduj(pm, ZDMin, ZDMax, LBnP);
+            tablicaDekodowanych[i] = Dekoduj(tablicaZakodowanych[i], ZDMin, ZDMax, LBnP);
+
+            Console.WriteLine($"{pm:F2} | {string.Join("", tablicaZakodowanych[i])} | {tablicaDekodowanych[i]:F2}");
+        }
+
+        Console.WriteLine($"Zakodowana liczba binarna dla indeksu 2: {string.Join("", tablicaZakodowanych[2])}");
+
+        int[] PulaOsobnikow = tablicaZakodowanych.Select(x => Convert.ToInt32(string.Join("", x), 2)).ToArray();
+        for (int i = 0; i < 5; i++)
+        {
+            int zwyciezca = SelekcjaTurniejowa(PulaOsobnikow, Ocenaosobników, TurRozm);
+            Console.WriteLine($"Wybrany osobnik: {Convert.ToString(zwyciezca, 2).PadLeft(LBnP, '0')}");
+        }
+        int najlepszy = SelekcjaHotDeck(PulaOsobnikow, Ocenaosobników);
+        Console.WriteLine($"Najlepszy osobnik (hot deck): {Convert.ToString(najlepszy, 2).PadLeft(LBnP, '0')}");
+
+
+        double[] wejscia = { 0.2, 0.3, 0.4 };
+        double[] wagi = { 0.3, 0.2, 0.1, 0.5 };
+        double wynik = FunkcjaSkalarna(wejscia,wagi);
+        Console.WriteLine($"Wynik skalarny wynosi: {wynik}");
+
+
+
+        int[] cbr1 = Binarnie(62, LBnOs);
+        int[] cbr2 = Binarnie(12, LBnOs);
+
+        Console.WriteLine("Rodzic 1: " + string.Join("", cbr1));
+        Console.WriteLine("Rodzic 2: " + string.Join("", cbr2));
+
+        (int[] dziecko1, int[] dziecko2) = Operatorkrzyzowania(cbr1, cbr2, LBnOs);
+
+        Console.WriteLine("Potomek 1: " + string.Join("", dziecko1));
+        Console.WriteLine("Potomek 2: " + string.Join("", dziecko2));
+
+        int[] cbwe = Binarnie(62, LBnOs);
+
+        int[] cbwy = OperatorMutacji(cbwe, LBnOs);
+        Console.WriteLine("Przed Mutacja: " + string.Join("", cbwe));
+
+        Console.WriteLine("Po Mutacja: " + string.Join("", cbwy));
+
+    }
+
+
+    static int []Binarnie(int number, int length)
+    {
+        string binary = Convert.ToString(number, 2).PadLeft(length, '0');
+        return binary.Select(c => c - '0').ToArray();
+    }
+    public static int[] Koduj(double pm, double ZDMin, double ZDMax, int LBnP)
+    {
+        double ZD = ZDMax - ZDMin;
+        pm = Math.Max(pm, ZDMin);
+        pm = Math.Min(pm, ZDMax);
+
+        int ctmp = (int)Math.Round((pm - ZDMin) / ZD * (Math.Pow(2, LBnP) - 1));
+        int[] cb = new int[LBnP];
+
+        for (int b = 0; b < LBnP; b++)
+        {
+            cb[LBnP - 1 - b] = (int)Math.Floor(ctmp / Math.Pow(2, b)) % 2;
+        }
+
+        return cb;
+    }
+
+    public static double Dekoduj(int[] cb, double ZDMin, double ZDMax, int LBnP)
+    {
+        double ZD = ZDMax - ZDMin;
+        int ctmp = 0;
+
+        for (int b = 0; b < LBnP; b++)
+        {
+            ctmp += cb[LBnP - 1 - b] * (int)Math.Pow(2, b);
+        }
+
+        return ZDMin + (ctmp / (Math.Pow(2, LBnP) - 1)) * ZD;
+    }
+
+    public static int SelekcjaTurniejowa(int[] Pulaosobnikow, double[] Ocenaosobników, int TurRozm)
+    {
+        Random rnd = new Random();
+
+        int[] SkladTurnieju = Pulaosobnikow.OrderBy(x => rnd.Next()).Take(TurRozm).ToArray();
+
+        int Oswybrany = SkladTurnieju.OrderBy(i => Ocenaosobników[i]).First();
+
+        return Oswybrany;
+    }
+    public static int SelekcjaHotDeck(int[] Pulaosobnikow, double[] Ocenaosobników)
+    {
+        int najlepszyOsobnik = Pulaosobnikow.OrderBy(i => Ocenaosobników[i]).First();
+
+        return najlepszyOsobnik;
+    }
+    public static double FunkcjaSkalarna(double[] Wejscia, double[] Wagi)
+    {
+        double wynik = 0;
+
+        for(int i=0; i<Wejscia.Length; i++)
+        {
+            wynik+= Wejscia[i] * Wagi[i];
+            
+        }
+        double ostatni = Wagi[Wagi.Length - 1];
+        return wynik+ostatni;
+    }
+    public static (int[], int[]) Operatorkrzyzowania(int[] cbr1, int[] cbr2, int LBnOs)
+    {
+        Random random = new Random();
+        int ciecie = random.Next(0, LBnOs - 1); 
+
+        int[] cbp1 = new int[LBnOs];
+        int[] cbp2 = new int[LBnOs];
+
+        for (int b = 0; b <= ciecie; b++)
+        {
+            cbp1[b] = cbr1[b];
+            cbp2[b] = cbr2[b];
+        }
+
+        for (int b = ciecie + 1; b < LBnOs; b++)
+        {
+            cbp1[b] = cbr2[b];
+            cbp2[b] = cbr1[b];
+        }
+
+        return (cbp1, cbp2);
+    }
+    public static int[] OperatorMutacji(int[] cbwe, int LBnOs)
+    {
+        Random random = new Random();
+        int bpunkt = random.Next(0, LBnOs - 1);
+        int[] cbwy = new int[LBnOs];
+        for(int i=0; i<LBnOs;i++)
+        {
+            cbwy[i]=cbwe[i];
+            if (i == bpunkt)
+            {
+                cbwy[i] = cbwe[i] == 0 ? 1 : 0;
+            }
+        }
+        return cbwy;
+    }
+}
