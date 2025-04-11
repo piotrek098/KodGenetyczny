@@ -1,0 +1,170 @@
+using System;
+using System.Linq;
+using System.Collections.Generic;
+
+class KodowanieGenetyczne
+{
+    static void Main()
+    {
+        double ZDMin = 0, ZDMax = 3;
+        int LBnP = 4;
+        int liczbaParametrow = 3;
+        int LBnOs = LBnP * liczbaParametrow;
+        int liczbaOsobnikow = 13;
+        int liczbaIteracji = 100;
+        int rozmiarTurnieju = 3;
+
+        List<(double x, double y)> probki = new List<(double, double)>
+    {
+        (-1.0, 0.59554), (-0.8, 0.58813), (-0.6, 0.64181), (-0.4, 0.68587),
+        (-0.2, 0.44783), (0.0, 0.40836), (0.2, 0.38241), (0.4, -0.05933),
+        (0.6, -0.12478), (0.8, -0.36847), (1.0, -0.39935), (1.2, -0.50881),
+        (1.4, -0.63435), (1.6, -0.59979), (1.8, -0.64107), (2.0, -0.51808),
+        (2.2, -0.38127), (2.4, -0.12349), (2.6, -0.09624), (2.8, 0.27893),
+        (3.0, 0.48965), (3.2, 0.33089), (3.4, 0.70615), (3.6, 0.53342),
+        (3.8, 0.43321), (4.0, 0.64790), (4.2, 0.48834), (4.4, 0.18440),
+        (4.6, -0.02389), (4.8, -0.10261), (5.0, -0.33594), (5.2, -0.35101),
+        (5.4, -0.62027), (5.6, -0.55719), (5.8, -0.66377), (6.0, -0.62740)
+    };
+
+        Random random = new Random();
+
+        // 1. Inicjalizacja losowej populacji
+        int[][] populacja = new int[liczbaOsobnikow][];
+        for (int i = 0; i < liczbaOsobnikow; i++)
+        {
+            populacja[i] = new int[LBnOs];
+            for (int j = 0; j < LBnOs; j++)
+                populacja[i][j] = random.Next(2);
+        }
+
+        for (int iter = 0; iter <= liczbaIteracji; iter++)
+        {
+            double[] oceny = new double[liczbaOsobnikow];
+            int[] indeksy = Enumerable.Range(0, liczbaOsobnikow).ToArray();
+
+            for (int i = 0; i < liczbaOsobnikow; i++)
+            {
+                double pa = Dekoduj(populacja[i].Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+                double pb = Dekoduj(populacja[i].Skip(LBnP).Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+                double pc = Dekoduj(populacja[i].Skip(2 * LBnP).Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+
+                oceny[i] = probki.Sum(p => Math.Pow(p.y - Funkcjaprzystosowania(pa, pb, pc, p.x), 2));
+            }
+
+            double najlepszy = oceny.Min();
+            double srednia = oceny.Average();
+            int indeksNajlepszego = Array.IndexOf(oceny, najlepszy);
+
+            double pa_best = Dekoduj(populacja[indeksNajlepszego].Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+            double pb_best = Dekoduj(populacja[indeksNajlepszego].Skip(LBnP).Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+            double pc_best = Dekoduj(populacja[indeksNajlepszego].Skip(2 * LBnP).Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+
+            Console.WriteLine($"Iteracja {iter}: Najlepszy = {najlepszy:F5}, Średnia = {srednia:F5}, pa={pa_best:F2}, pb={pb_best:F2}, pc={pc_best:F2}");
+
+            if (iter == liczbaIteracji) break;
+
+            List<int[]> nowaPopulacja = new List<int[]>();
+
+            for (int i = 0; i < liczbaOsobnikow - 1; i++)
+            {
+                int r = SelekcjaTurniejowa(indeksy, oceny, rozmiarTurnieju);
+                nowaPopulacja.Add((int[])populacja[r].Clone());
+            }
+
+            int[][] krzyzowane = new int[4][];
+            for (int i = 0; i < krzyzowane.Length; i++) krzyzowane[i] = nowaPopulacja[i];
+
+            (int[] d1, int[] d2) = Operatorkrzyzowania(krzyzowane[0], krzyzowane[1], LBnOs);
+            nowaPopulacja[0] = d1;
+            nowaPopulacja[1] = d2;
+
+            (d1, d2) = Operatorkrzyzowania(nowaPopulacja[2], nowaPopulacja[3], LBnOs);
+            nowaPopulacja[2] = d1;
+            nowaPopulacja[3] = d2;
+
+            (d1, d2) = Operatorkrzyzowania(nowaPopulacja[8], nowaPopulacja[9], LBnOs);
+            nowaPopulacja[8] = d1;
+            nowaPopulacja[9] = d2;
+
+            (d1, d2) = Operatorkrzyzowania(nowaPopulacja[10], nowaPopulacja[11], LBnOs);
+            nowaPopulacja[10] = d1;
+            nowaPopulacja[11] = d2;
+
+            for (int i = 4; i < nowaPopulacja.Count; i++)
+            {
+                nowaPopulacja[i] = OperatorMutacji(nowaPopulacja[i], LBnOs);
+            }
+
+            nowaPopulacja.Add(populacja[indeksNajlepszego]);
+
+            populacja = nowaPopulacja.ToArray();
+        }
+    }
+
+
+
+    public static double Funkcjaprzystosowania(double pa, double pb, double pc, double x)
+    {
+        return pa * Math.Sin(pb * x + pc);
+    }
+
+    public static double Dekoduj(int[] cb, double ZDMin, double ZDMax, int LBnP)
+    {
+        double ZD = ZDMax - ZDMin;
+        int ctmp = 0;
+        for (int b = 0; b < LBnP; b++)
+        {
+            ctmp += cb[LBnP - 1 - b] * (int)Math.Pow(2, b);
+        }
+        return ZDMin + (ctmp / (Math.Pow(2, LBnP) - 1)) * ZD;
+    }
+
+    public static int[] OperatorMutacji(int[] cbwe, int LBnOs)
+    {
+        Random random = new Random();
+        int bpunkt = random.Next(0, LBnOs - 1);
+        int[] cbwy = new int[LBnOs];
+        for (int i = 0; i < LBnOs; i++)
+        {
+            cbwy[i] = cbwe[i];
+            if (i == bpunkt)
+                cbwy[i] = cbwe[i] == 0 ? 1 : 0;
+        }
+        return cbwy;
+    }
+
+    public static (int[], int[]) Operatorkrzyzowania(int[] cbr1, int[] cbr2, int LBnOs)
+    {
+        Random random = new Random();
+        int ciecie = random.Next(0, LBnOs - 1);
+        int[] cbp1 = new int[LBnOs];
+        int[] cbp2 = new int[LBnOs];
+
+        for (int b = 0; b <= ciecie; b++)
+        {
+            cbp1[b] = cbr1[b];
+            cbp2[b] = cbr2[b];
+        }
+        for (int b = ciecie + 1; b < LBnOs; b++)
+        {
+            cbp1[b] = cbr2[b];
+            cbp2[b] = cbr1[b];
+        }
+
+        return (cbp1, cbp2);
+    }
+
+    public static int SelekcjaTurniejowa(int[] Pulaosobnikow, double[] Ocenaosobników, int TurRozm)
+    {
+        Random rnd = new Random();
+        int[] SkladTurnieju = Pulaosobnikow.OrderBy(x => rnd.Next()).Take(TurRozm).ToArray();
+        int Oswybrany = SkladTurnieju.OrderBy(i => Ocenaosobników[i]).First();
+        return Oswybrany;
+    }
+
+    public static int SelekcjaHotDeck(int[] Pulaosobnikow, double[] Ocenaosobników)
+    {
+        return Pulaosobnikow.OrderBy(i => Ocenaosobników[i]).First();
+    }
+}
