@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 
-class KodowanieGenetyczne
+class Zadanie2
 {
     static void Main()
     {
