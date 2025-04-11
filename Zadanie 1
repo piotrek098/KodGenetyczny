@@ -1,0 +1,108 @@
+using System;
+using System.Linq;
+
+class ZmutowanyDywanik
+{
+    static void Main()
+    {
+        double ZDMin = 0, ZDMax = 100;
+        int LBnP = 3; 
+        int liczbaParametrow = 2;
+        int LBnOs = LBnP * liczbaParametrow;  
+        int liczbaOsobnikow = 11;  
+        int liczbaIteracji = 20;  
+        int rozmiarTurnieju = 2;  
+
+        Random random = new Random();
+
+        int[][] populacja = new int[liczbaOsobnikow][];
+        for (int i = 0; i < liczbaOsobnikow; i++)
+        {
+            populacja[i] = new int[LBnOs];
+            for (int j = 0; j < LBnOs; j++)
+                populacja[i][j] = random.Next(2);  
+        }
+
+        for (int iter = 0; iter < liczbaIteracji; iter++)
+        {
+            double[] oceny = new double[liczbaOsobnikow];
+
+            for (int i = 0; i < liczbaOsobnikow; i++)
+            {
+                double x1 = Dekoduj(populacja[i].Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+                double x2 = Dekoduj(populacja[i].Skip(LBnP).Take(LBnP).ToArray(), ZDMin, ZDMax, LBnP);
+                oceny[i] = FunkcjaPrzystosowania(x1, x2);
+            }
+
+            int najlepszyOsobnik = SelekcjaHotDeck(oceny);
+
+            double srednia = oceny.Average();
+            double najlepszaOcena = oceny[najlepszyOsobnik];
+
+            Console.WriteLine($"Iteracja {iter}: Najlepszy = {najlepszaOcena:F4}, Średnia = {srednia:F4}");
+
+            
+            int[][] nowaPopulacja = new int[liczbaOsobnikow][];
+            for (int i = 0; i < liczbaOsobnikow - 1; i++)
+            {
+                
+                int wybrany = SelekcjaTurniejowa(populacja, oceny, rozmiarTurnieju, random);
+                
+                int[] zmutowany = OperatorMutacji(populacja[wybrany], LBnOs, random);
+                nowaPopulacja[i] = zmutowany;
+            }
+
+            nowaPopulacja[liczbaOsobnikow - 1] = populacja[najlepszyOsobnik];
+
+            
+            populacja = nowaPopulacja;
+        }
+    }
+
+    static int[] OperatorMutacji(int[] osobnik, int LBnOs, Random random)
+    {
+        int[] wynik = new int[LBnOs];
+        Array.Copy(osobnik, wynik, LBnOs);
+        int punkt = random.Next(LBnOs);
+        wynik[punkt] = wynik[punkt] == 0 ? 1 : 0;  
+        return wynik;
+    }
+
+  
+    static int SelekcjaTurniejowa(int[][] populacja, double[] oceny, int rozmiarTurnieju, Random random)
+    {
+        int[] indeksy = Enumerable.Range(0, populacja.Length).OrderBy(x => random.Next()).Take(rozmiarTurnieju).ToArray();
+        int najlepszy = indeksy[0];
+        for (int i = 1; i < indeksy.Length; i++)
+        {
+            if (oceny[indeksy[i]] > oceny[najlepszy])
+                najlepszy = indeksy[i];
+        }
+        return najlepszy;
+    }
+
+    public static double FunkcjaPrzystosowania(double x1, double x2)
+    {
+        return Math.Sin(x1 * 0.05) + Math.Sin(x2 * 0.05) + 0.4 * Math.Sin(x1 * 0.15) * Math.Sin(x2 * 0.15);
+    }
+
+    
+    public static double Dekoduj(int[] cb, double ZDMin, double ZDMax, int LBnP)
+    {
+        double ZD = ZDMax - ZDMin;
+        int ctmp = 0;
+        for (int b = 0; b < LBnP; b++)
+        {
+            ctmp += cb[LBnP - 1 - b] * (int)Math.Pow(2, b);
+        }
+        return ZDMin + (ctmp / (Math.Pow(2, LBnP) - 1)) * ZD;
+    }
+
+    
+    public static int SelekcjaHotDeck(double[] oceny)
+    {
+        
+        int najlepszyOsobnik = Array.IndexOf(oceny, oceny.Max());
+        return najlepszyOsobnik;
+    }
+}
